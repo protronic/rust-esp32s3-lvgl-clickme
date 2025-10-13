@@ -50,9 +50,8 @@ pub struct RgbPanelConfigBuilder {
     bb_invalidate_cache: bool,
 }
 
-impl RgbPanelConfigBuilder {
-    /// Creates a new builder with default values.
-    pub fn new() -> Self {
+impl Default for RgbPanelConfigBuilder {
+    fn default() -> Self {
         Self {
             // esp_lcd_rgb_timing_t DEFAULT parameters
             pclk_hz: 16_000_000,
@@ -91,6 +90,13 @@ impl RgbPanelConfigBuilder {
             no_fb: false,
             bb_invalidate_cache: false,
         }
+    }
+}
+
+impl RgbPanelConfigBuilder {
+    /// Creates a new builder with default values.
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /*
@@ -310,71 +316,65 @@ impl RgbPanelConfigBuilder {
 
     /// Builds the `esp_lcd_rgb_panel_panel_config_t` struct.
     pub fn build(&mut self) -> esp_lcd_rgb_panel_config_t {
-        let mut panel_config = esp_lcd_rgb_panel_config_t::default();
+        esp_lcd_rgb_panel_config_t {
+            clk_src: {
+                let mut clk_src = soc_periph_lcd_clk_src_t_LCD_CLK_SRC_PLL160M;
+                if self.clk_src_ppl240m {
+                    clk_src = soc_periph_lcd_clk_src_t_LCD_CLK_SRC_PLL240M;
+                }
 
-        panel_config.clk_src = {
-            let mut clk_src = soc_periph_lcd_clk_src_t_LCD_CLK_SRC_PLL160M;
-            if self.clk_src_ppl240m {
-                clk_src = soc_periph_lcd_clk_src_t_LCD_CLK_SRC_PLL240M;
-            }
+                clk_src
+            },
+            timings: esp_lcd_rgb_timing_t {
+                pclk_hz: self.pclk_hz,
+                h_res: self.h_res,
+                v_res: self.v_res,
+                hsync_pulse_width: self.hsync_pulse_width,
+                hsync_back_porch: self.hsync_back_porch,
+                hsync_front_porch: self.hsync_front_porch,
+                vsync_pulse_width: self.vsync_pulse_width,
+                vsync_back_porch: self.vsync_back_porch,
+                vsync_front_porch: self.vsync_front_porch,
 
-            clk_src
-        };
-        panel_config.timings = {
-            let mut timing = esp_lcd_rgb_timing_t::default();
+                // Set the bitfield using the provided bindgen setter function.
+                flags: {
+                    let mut flags = esp_lcd_rgb_timing_t__bindgen_ty_1::default();
+                    flags.set_hsync_idle_low(self.hsync_idle_low as u32);
+                    flags.set_vsync_idle_low(self.vsync_idle_low as u32);
+                    flags.set_de_idle_high(self.de_idle_high as u32);
+                    flags.set_pclk_active_neg(self.pclk_active_neg as u32);
+                    flags.set_pclk_idle_high(self.pclk_idle_high as u32);
 
-            timing.pclk_hz = self.pclk_hz;
-            timing.h_res = self.h_res;
-            timing.v_res = self.v_res;
-            timing.hsync_pulse_width = self.hsync_pulse_width;
-            timing.hsync_back_porch = self.hsync_back_porch;
-            timing.hsync_front_porch = self.hsync_front_porch;
-            timing.vsync_pulse_width = self.vsync_pulse_width;
-            timing.vsync_back_porch = self.vsync_back_porch;
-            timing.vsync_front_porch = self.vsync_front_porch;
+                    flags
+                },
+            },
+            data_width: self.data_width,
+            bits_per_pixel: self.bits_per_pixel,
+            num_fbs: self.num_fbs,
+            bounce_buffer_size_px: self.bounce_buffer_size_px,
+            sram_trans_align: self.sram_trans_align,
+            __bindgen_anon_1: esp_lcd_rgb_panel_config_t__bindgen_ty_1 {
+                dma_burst_size: self.dma_burst_size,
+            },
+            hsync_gpio_num: self.hsync_gpio_num,
+            vsync_gpio_num: self.vsync_gpio_num,
+            de_gpio_num: self.de_gpio_num,
+            pclk_gpio_num: self.pclk_gpio_num,
+            disp_gpio_num: self.disp_gpio_num,
+            data_gpio_nums: self.data_gpio_nums,
 
             // Set the bitfield using the provided bindgen setter function.
-            timing.flags = {
-                let mut flags = esp_lcd_rgb_timing_t__bindgen_ty_1::default();
-                flags.set_hsync_idle_low(self.hsync_idle_low as u32);
-                flags.set_vsync_idle_low(self.vsync_idle_low as u32);
-                flags.set_de_idle_high(self.de_idle_high as u32);
-                flags.set_pclk_active_neg(self.pclk_active_neg as u32);
-                flags.set_pclk_idle_high(self.pclk_idle_high as u32);
+            flags: {
+                let mut flags = esp_lcd_rgb_panel_config_t__bindgen_ty_2::default();
+                flags.set_disp_active_low(self.disp_active_low as u32);
+                flags.set_fb_in_psram(self.fb_in_psram as u32);
+                flags.set_double_fb(self.double_fb as u32);
+                flags.set_no_fb(self.no_fb as u32);
+                flags.set_bb_invalidate_cache(self.bb_invalidate_cache as u32);
 
                 flags
-            };
-
-            timing
-        };
-        panel_config.data_width = self.data_width;
-        panel_config.bits_per_pixel = self.bits_per_pixel;
-        panel_config.num_fbs = self.num_fbs;
-        panel_config.bounce_buffer_size_px = self.bounce_buffer_size_px;
-        panel_config.sram_trans_align = self.sram_trans_align;
-        panel_config.__bindgen_anon_1 = esp_lcd_rgb_panel_config_t__bindgen_ty_1 {
-            dma_burst_size: self.dma_burst_size,
-        };
-        panel_config.hsync_gpio_num = self.hsync_gpio_num;
-        panel_config.vsync_gpio_num = self.vsync_gpio_num;
-        panel_config.de_gpio_num = self.de_gpio_num;
-        panel_config.pclk_gpio_num = self.pclk_gpio_num;
-        panel_config.disp_gpio_num = self.disp_gpio_num;
-        panel_config.data_gpio_nums = self.data_gpio_nums;
-
-        // Set the bitfield using the provided bindgen setter function.
-        panel_config.flags = {
-            let mut flags = esp_lcd_rgb_panel_config_t__bindgen_ty_2::default();
-            flags.set_disp_active_low(self.disp_active_low as u32);
-            flags.set_fb_in_psram(self.fb_in_psram as u32);
-            flags.set_double_fb(self.double_fb as u32);
-            flags.set_no_fb(self.no_fb as u32);
-            flags.set_bb_invalidate_cache(self.bb_invalidate_cache as u32);
-
-            flags
-        };
-
-        panel_config
+            },
+        }
     }
 }
 
