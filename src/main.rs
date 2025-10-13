@@ -31,7 +31,7 @@ use lvgl::input_device::{
 };
 
 use crate::gt911::{TouchState, GT911};
-use crate::lcd_panel::{LcdPanel, PanelConfig, PanelFlagsConfig, TimingFlagsConfig, TimingsConfig};
+use crate::lcd_panel::{EspLcdRgbPanel, RgbPanelConfigBuilder};
 
 fn main() -> anyhow::Result<()> {
     // It is necessary to call this function once. Otherwise some patches to the runtime
@@ -51,7 +51,7 @@ fn main() -> anyhow::Result<()> {
     //============================================================================================================
     //               Create the I2C to communicate with the touchscreen controller
     //============================================================================================================
-    info!("======== Create I2C ==========");
+    info!("Create I2C");
     let i2c = peripherals.i2c0;
     let sda = pins.gpio19;
     let scl = pins.gpio20;
@@ -62,7 +62,7 @@ fn main() -> anyhow::Result<()> {
     //               Create the LedcDriver to drive the backlight on the Lcd Panel
     //============================================================================================================
 
-    info!("========== Create LedcDriver ==========");
+    info!("Create LedcDriver");
     let mut channel = LedcDriver::new(
         peripherals.ledc.channel0,
         LedcTimerDriver::new(
@@ -81,24 +81,54 @@ fn main() -> anyhow::Result<()> {
     //============================================================================================================
     // Stack size value - 50,000 for 10 lines, 60,000 for 12 lines
     let _lvgl_thread = thread::Builder::new().stack_size(24000).spawn(move || {
+        info!("Create LCD panel");
+        let lcd_panel_config = RgbPanelConfigBuilder::new()
+            .h_res(800)
+            .v_res(480)
+            .pclk_hz(16_000_000)
+            .hsync_pulse_width(1)
+            .hsync_back_porch(16)
+            .hsync_front_porch(210)
+            .vsync_pulse_width(1)
+            .vsync_back_porch(10)
+            .vsync_front_porch(22)
+            .hsync_idle_low(false)
+            .vsync_idle_low(false)
+            .de_idle_high(false)
+            .pclk_active_neg(true)
+            .pclk_idle_high(false)
+            .clk_src_ppl240m(true) // CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y must be set in sdkconfig.defaults
+            .data_width(16)
+            .bits_per_pixel(0)
+            .num_fbs(1)
+            .bounce_buffer_size_px(3200)
+            .sram_trans_align(8) // tried 16, 32, 64 but did not make a differnce
+            .dma_burst_size(64)
+            .hsync_gpio_num(39)
+            .vsync_gpio_num(40)
+            .de_gpio_num(41)
+            .pclk_gpio_num(42)
+            .disp_gpio_num(-1)
+            // gpio's for RGB565 data lines - [B3, B4, B5, B6, B7,   G2, G3, G4, G5, G6, G7    R3, R4, R5, R6, R7]
+            //                                [15,  7,  6,  5,  4,    9, 46,  3,  8, 16,  1,   14, 21, 47, 48, 45]
+            .data_gpio_nums(&[15, 7, 6, 5, 4, 9, 46, 3, 8, 16, 1, 14, 21, 47, 48, 45])
+            .disp_active_low(false)
+            .refresh_on_demand(false)
+            .fb_in_psram(true)
+            .double_fb(false)
+            .no_fb(false)
+            .bb_invalidate_cache(false)
+            .build();
+
+        let mut lcd_panel = EspLcdRgbPanel::new(lcd_panel_config).unwrap();
+
         // Initialize lvgl
         lvgl::init();
 
-        //=====================================================================================================
-        //                         Create driver for the LCD Panel
-        //=====================================================================================================
-        let mut lcd_panel = LcdPanel::new(
-            &PanelConfig::new(),
-            &PanelFlagsConfig::new(),
-            &TimingsConfig::new(),
-            &TimingFlagsConfig::new(),
-        )
-        .unwrap();
-
-        info!("=============  Registering Display ====================");
+        info!("Registering Display");
         const HOR_RES: u32 = 800;
         const VER_RES: u32 = 480;
-        const LINES: u32 = 4; // The number of lines (rows) that will be refreshed  was 12
+        const LINES: u32 = 2; // The number of lines (rows) that will be refreshed  was 12
         let draw_buffer = DrawBuffer::<{ (HOR_RES * LINES) as usize }>::default();
         let display = Display::register(draw_buffer, HOR_RES, VER_RES, |refresh| {
             lcd_panel
@@ -107,7 +137,7 @@ fn main() -> anyhow::Result<()> {
                     refresh.area.y1.into(),
                     (refresh.area.x2 + 1i16).into(),
                     (refresh.area.y2 + 1i16).into(),
-                    refresh.colors.into_iter(),
+                    refresh.colors,
                 )
                 .unwrap();
         })
@@ -116,7 +146,7 @@ fn main() -> anyhow::Result<()> {
         //======================================================================================================
         //                          Create the driver for the Touchscreen
         //======================================================================================================
-        info!("=============  Creating Touchscreen ====================");
+        info!("Creating Touchscreen");
         //let gt911_touchscreen = RefCell::new(GT911::new(i2c, rst, Ets));
         //gt911_touchscreen.borrow_mut().reset().unwrap();
         let touchscreen = RefCell::new(GT911::new(i2c));
@@ -165,7 +195,7 @@ fn main() -> anyhow::Result<()> {
         //=======================================================================================================
         //                               Create the User Interface
         //=======================================================================================================
-        info!("=============  Creating UI ====================");
+        info!("Creating UI");
         // Create screen and widgets
         let mut screen = display.get_scr_act().unwrap();
         let mut screen_style = Style::default();
@@ -206,7 +236,7 @@ fn main() -> anyhow::Result<()> {
             lvgl::task_handler();
 
             // Keep the loop delay short so Lvgl can respond quickly to touchscreen presses and releases
-            FreeRtos::delay_ms(30);
+            FreeRtos::delay_ms(5);
 
             lvgl::tick_inc(Instant::now().duration_since(start));
         }
@@ -214,7 +244,7 @@ fn main() -> anyhow::Result<()> {
 
     loop {
         // Don't exit application
-        FreeRtos::delay_ms(1000);
+        FreeRtos::delay_ms(10000);
     }
 }
 

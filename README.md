@@ -19,7 +19,8 @@ The custom-fonts folder contains our custom fonts.  The customs fonts are conver
 To use this custom font, I added ```LVGL_FONTS_DIR = {relative = true, value = "custom-fonts"}``` to my config.toml under [env].  This allows our font to be compiled when lvgl is compiled.
 
 ## lvgl-configs folder
-The lvgl-configs folder holds the lv_config.h and lv_drv_conf.h files which are required by lvgl to compile.  Everything in lv_drv_conf.h file is set to 0 as I am not using the lvgl drivers.  I the only thing I changed in the lv_conf.h file was I added additional font (LV_FONT_MONTSERRAT_28) and changed the default font (LV_FONT_DEFAULT &lv_font_montserrat_28).
+The lvgl-configs folder holds the lv_config.h and lv_drv_conf.h files which are required by lvgl to compile.  Everything in lv_drv_conf.h file is set to 0 as I am not using the lvgl drivers. To show memory usage and cpu utilization on display I set #define LV_USE_PERF_MONITOR 1 (line 246) and #define LV_USE_MEM_MONITOR 1 (line 253).  I set #define LV_DISP_DEF_REFR_PERIOD 10  (line 81)
+
 
 ## lcd_panel.rs file
 The LCD RGB panel driver.
@@ -30,6 +31,8 @@ The GT911 touchscreen controller driver.
 ## sdkconfig.defaults file
 The following needs to be added for using PSRAM.
 ```
+CONFIG_FREERTOS_HZ=1000
+
 CONFIG_SPIRAM=y
 CONFIG_SPIRAM_MODE_OCT=y
 CONFIG_SPIRAM_SPEED_80M=y
@@ -38,6 +41,8 @@ CONFIG_SPIRAM_SPEED_80M=y
 # the Frame Buffer is allocated from the PSRAM and fetched by EDMA
 CONFIG_SPIRAM_FETCH_INSTRUCTIONS=y
 CONFIG_SPIRAM_RODATA=y
+
+CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y
 ```
 
 ## Cargo.toml project file
@@ -45,10 +50,10 @@ I have the following to the "dependencies" section.
 ```
 [dependencies]
 # Logging
-log = { version = "0.4", default-features = false }
+log = "0.4"
 
 # ESP specifics
-esp-idf-svc = { version = "0.51", features = ["critical-section", "embassy-time-driver", "embassy-sync", "alloc"] }
+esp-idf-svc = "0.51"
 
 # LVGL
 lvgl = { version = "0.6.2", default-features = false, features = [
@@ -72,12 +77,20 @@ cstr_core = "0.2.1"
 
 ```
 
-I also included patch.crates-io section to patch esp-idf-sys, lvgl and lvgl-sys
+I also included patch.crates-io section to patch lvgl and lvgl-sys, esp-idf-svc, esp-idf-sys, esp-idf-hal
 ```
 [patch.crates-io]
 lvgl = { git = "https://github.com/enelson1001/lv_binding_rust"}
 lvgl-sys = { git = "https://github.com/enelson1001/lv_binding_rust"}
 
+# Need to use Master branch if using esp-idf greater than version 5.2 (ie v5.4.2, v5.5.1)otherwise esp_lcd_panel_rgb.h is not included
+esp-idf-sys = { git =  "https://github.com/esp-rs/esp-idf-sys.git"}
+
+# Need to use Master branch if using esp-idf v5.5.1 or else you will get the following 2 errors
+# error[E0422]: cannot find struct, variant or union type `twai_timing_config_t__bindgen_ty_1` in this scope
+# error[E0560]: struct `esp_idf_sys::twai_timing_config_t` has no field named `__bindgen_anon_1`
+esp-idf-hal = { git =  "https://github.com/esp-rs/esp-idf-hal.git"}
+esp-idf-svc = { git =  "https://github.com/esp-rs/esp-idf-svc.git"}
 ```
 
 ## config.toml
@@ -98,7 +111,7 @@ build-std = ["std", "panic_abort"]
 MCU="esp32s3"
 
 # Note: this variable is not used by the pio builder (`cargo build --features pio`)
-ESP_IDF_VERSION = "v5.2.3"
+ESP_IDF_VERSION = "v5.5.1"
 
 # The directory that has the lvgl config files - lv_conf.h, lv_drv_conf.h
 DEP_LV_CONFIG_PATH = { relative = true, value = "lvgl-configs" }
@@ -115,9 +128,8 @@ LVGL_FONTS_DIR = {relative = true, value = "custom-fonts"}
 
 # Required for lvgl to build otherwise you will get string.h not found.
 # Verfiy path and toolchain version being used on your PC (esp-14.2.0_20240906)
-TARGET_C_INCLUDE_PATH = "/home/ed/.rustup/toolchains/esp/xtensa-esp-elf/esp-14.2.0_20240906/xtensa-esp-elf/xtensa-esp-elf/include"
+TARGET_C_INCLUDE_PATH = "/home/ed/.rustup/toolchains/esp/xtensa-esp-elf/esp-15.2.0_20250920/xtensa-esp-elf/xtensa-esp-elf/include"
 ```
-
 
 ## lv-binding-rust fork
 I updated my fork of lv-binding-rust to include PR153 ie the changes recommended by madwizard-thomas and merged with Master commit d83b374
@@ -127,6 +139,23 @@ I used the following command to flash the ESP32S3 device.
 ```
 $ cargo espflash flash --partition-table=partition-table/partitions.csv --monitor
 ```
+
+## Observations
+Setting  ```#define LV_DISP_DEF_REFR_PERIOD 10  (line 81) in lv_conf.h ``` increased FPS from 66 to 100.
+
+Setting ```lcd_panel_config = RgbPanelConfigBuilder::new().clk_src_ppl240m(true)``` and ```CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y``` reduce CPU utilization.
+
+Setting ```lcd_panel_config = RgbPanelConfigBuilder::new().bounce_buffer_size_px(3200)``` to a larger value did not seem to make any difference.  But if you see the display shift you may want to adjust this value.  
+
+Also if display shifts then setting ```CONFIG_SPIRAM_XIP_FROM_PSRAM=y CONFIG_LCD_RGB_RESTART_IN_VSYNC=y``` in sdconfig.defaults may help.
+
+Code size was ```App/part. size:    931,184/3,145,728 bytes, 29.60%``` in debug.
+
+Lvgl memory monitor displayed 9.1kB used (20%), 2% frag.
+
+Lvgl cpu utilization displayed 100 FPS, 0% CPU
+
+
 
 ## Picture of Aliexpress ESP32S3 running the demo
 The picture quality is pretty poor but you get the idea what you should be seeing.
@@ -138,9 +167,18 @@ The clicked
 ![esp32s3-clicked](photos/clicked.jpg)
 
 
+
 # Versions
 ### v1.0 :
 - initial release
 
 ## Change History
-Feb 04, 2025 - Use latest lv_binding_rust commit d83b374, use esp-idf-svc v0.51
+Oct 13, 2025 
+- Update lcd_panel.rs to use builder for easier user implementation for different LCD displays
+- Tested with the following versions
+    - Rust: rustc 1.90.0 (1159e78c4 2025-09-14)
+    - espup: espup 0.16.0
+    - esp-idf: v5.42 or v5.5.1
+
+Feb 04, 2025 
+- Use latest lv_binding_rust commit d83b374, use esp-idf-svc v0.51
