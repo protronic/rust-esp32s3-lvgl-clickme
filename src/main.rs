@@ -81,36 +81,52 @@ fn main() -> anyhow::Result<()> {
     //============================================================================================================
     // Stack size value - 50,000 for 10 lines, 60,000 for 12 lines
     let _lvgl_thread = thread::Builder::new().stack_size(24000).spawn(move || {
+        // LCD timing parameters for the 4D Systems 4DLCD-70800480 (7" 800x480 RGB panel)
+        // Datasheet: https://resources.4dsystems.com.au/datasheets/4dlcd/4DLCD-70800480/
+        //
+        // Timing characteristics (typical values from datasheet):
+        //   Pixel clock  : 33.3 MHz
+        //   HSYNC (HPW)  : 20 PCLK   back porch (HBP): 182 PCLK   front porch (HFP): 210 PCLK
+        //   VSYNC (VPW)  : 14 lines  back porch (VBP): 23 lines   front porch (VFP): 22 lines
+        //   HSYNC/VSYNC  : active-low (idle high)
+        //   DE           : active-high
+        //   PCLK         : data sampled on rising edge (pclk_active_neg = false)
+        //
+        // GPIO assignments depend on your PCB / adapter board wiring:
+        //   HSYNC: GPIO39  VSYNC: GPIO40  DE: GPIO41  PCLK: GPIO42
+        //   RGB565 data lines [B3-B7, G2-G7, R3-R7]:
+        //   [15,  7,  6,  5,  4,    9, 46,  3,  8, 16,  1,   14, 21, 47, 48, 45]
         info!("Create LCD panel");
         let lcd_panel_config = RgbPanelConfigBuilder::new()
             .h_res(800)
             .v_res(480)
-            .pclk_hz(16_000_000)
-            .hsync_pulse_width(1)
-            .hsync_back_porch(16)
-            .hsync_front_porch(210)
-            .vsync_pulse_width(1)
-            .vsync_back_porch(10)
-            .vsync_front_porch(22)
-            .hsync_idle_low(false)
-            .vsync_idle_low(false)
-            .de_idle_high(false)
-            .pclk_active_neg(true)
+            .pclk_hz(33_300_000)       // 33.3 MHz typical pixel clock for 4DLCD-70800480
+            .hsync_pulse_width(20)     // HPW typ 20 PCLK
+            .hsync_back_porch(182)     // HBP typ 182 PCLK
+            .hsync_front_porch(210)    // HFP typ 210 PCLK
+            .vsync_pulse_width(14)     // VPW typ 14 lines
+            .vsync_back_porch(23)      // VBP typ 23 lines
+            .vsync_front_porch(22)     // VFP typ 22 lines
+            .hsync_idle_low(false)     // HSYNC active-low (idle high)
+            .vsync_idle_low(false)     // VSYNC active-low (idle high)
+            .de_idle_high(false)       // DE active-high
+            .pclk_active_neg(false)    // data sampled on rising edge of PCLK
             .pclk_idle_high(false)
-            .clk_src_ppl240m(true) // CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y must be set in sdkconfig.defaults
+            .clk_src_ppl240m(true)     // CONFIG_ESP_DEFAULT_CPU_FREQ_MHZ_240=y must be set in sdkconfig.defaults
             .data_width(16)
             .bits_per_pixel(0)
             .num_fbs(1)
             .bounce_buffer_size_px(3200)
-            .sram_trans_align(8) // tried 16, 32, 64 but did not make a differnce
+            .sram_trans_align(8)
             .dma_burst_size(64)
             .hsync_gpio_num(39)
             .vsync_gpio_num(40)
             .de_gpio_num(41)
             .pclk_gpio_num(42)
             .disp_gpio_num(-1)
-            // gpio's for RGB565 data lines - [B3, B4, B5, B6, B7,   G2, G3, G4, G5, G6, G7    R3, R4, R5, R6, R7]
-            //                                [15,  7,  6,  5,  4,    9, 46,  3,  8, 16,  1,   14, 21, 47, 48, 45]
+            // GPIO assignments for RGB565 data lines - adjust to match your PCB wiring
+            // [B3, B4, B5, B6, B7,   G2, G3, G4, G5, G6, G7    R3, R4, R5, R6, R7]
+            //  [15,  7,  6,  5,  4,    9, 46,  3,  8, 16,  1,   14, 21, 47, 48, 45]
             .data_gpio_nums(&[15, 7, 6, 5, 4, 9, 46, 3, 8, 16, 1, 14, 21, 47, 48, 45])
             .disp_active_low(false)
             .refresh_on_demand(false)
