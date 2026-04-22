@@ -149,8 +149,9 @@ TARGET_C_INCLUDE_PATH = "/home/ed/.rustup/toolchains/esp/xtensa-esp-elf/esp-15.2
 I updated my fork of lv-binding-rust to include PR153 ie the changes recommended by madwizard-thomas and merged with Master commit d83b374
 
 ## Flashing the ESP32S3 device
-I used the following command to flash the ESP32S3 device.
+Source the ESP environment first, then flash the ESP32S3 device.
 ```
+$ . ~/export-esp.sh
 $ cargo espflash flash --partition-table=partition-table/partitions.csv --monitor
 ```
 

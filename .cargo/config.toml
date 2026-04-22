@@ -31,4 +31,4 @@ LVGL_FONTS_DIR = {relative = true, value = "custom-fonts"}
 
 # Required for lvgl to build otherwise you will get string.h not found.
 # Verfiy path and toolchain version being used on your PC (esp-14.2.0_20240906)
-TARGET_C_INCLUDE_PATH = "/home/ed/.rustup/toolchains/esp/xtensa-esp-elf/esp-15.2.0_20250920/xtensa-esp-elf/xtensa-esp-elf/include"
+TARGET_C_INCLUDE_PATH = "/home/kmk0815/.rustup/toolchains/esp/xtensa-esp-elf/esp-15.2.0_20250920/xtensa-esp-elf/xtensa-esp-elf/include"
