@@ -2,8 +2,22 @@
 
 The purpose of this demo is to get lv-binding-rust (Lvgl) running on the ESP32S3 development board and to use the touchscreen.
 
-## Development Board
-Aliexpress ESP32-8048S070 - 7 inch 800x400 TN RGB with ESP32S3, 8M PSRAM, 16M Flash, 512KB SRAM
+## Display
+4D Systems [4DLCD-70800480](https://resources.4dsystems.com.au/datasheets/4dlcd/4DLCD-70800480/) — 7.0" 800×480 24-bit RGB TFT LCD with capacitive touch (GT911 controller).
+
+Connect the display to an ESP32S3 board.  The GPIO assignments in `main.rs` reflect one example wiring; adjust them to match your PCB layout:
+
+| Signal | GPIO |
+|--------|------|
+| HSYNC  | 39   |
+| VSYNC  | 40   |
+| DE     | 41   |
+| PCLK   | 42   |
+| Backlight (PWM) | 2 |
+| Touch SDA | 19 |
+| Touch SCL | 20 |
+| Touch RST | 38 |
+| B3–B7, G2–G7, R3–R7 | 15, 7, 6, 5, 4, 9, 46, 3, 8, 16, 1, 14, 21, 47, 48, 45 |
 
 ## Overview
 This application shows how to use lv-binding-rust crate on a ESP32S3 device along with the touchscreen.  The program will display a large button that shows "Click me!".  When the user clicks the button the button will now show "Clicked!"
@@ -157,9 +171,7 @@ Lvgl cpu utilization displayed 100 FPS, 0% CPU
 
 
 
-## Picture of Aliexpress ESP32S3 running the demo
-The picture quality is pretty poor but you get the idea what you should be seeing.
-
+## Picture of the demo running
 The click me
 ![esp32s3-clickme](photos/clickme.jpg)
 
@@ -173,6 +185,10 @@ The clicked
 - initial release
 
 ## Change History
+Apr 22, 2026
+- Adapt LCD timing for 4D Systems 4DLCD-70800480 (pclk 33.3 MHz, typical H/V sync timings, rising-edge PCLK)
+- Update README to reference 4D Systems display and document GPIO wiring
+
 Oct 13, 2025 
 - Update lcd_panel.rs to use builder for easier user implementation for different LCD displays
 - Tested with the following versions
